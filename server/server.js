@@ -4,7 +4,14 @@ require('dotenv').config()
 const express = require('express')
 const cors = require('cors')
 const connectDB = require('./config/db')
-
+const verifyToken = require('./middleware/authMiddleware')
+const adminRoutes = require('./routes/adminRoutes')
+const authRoutes = require('./routes/authRoutes')
+const vehicleRoutes = require('./routes/vehicleRoutes')
+const facilityRoutes = require('./routes/facilityRoutes')
+const slotRoutes = require('./routes/slotRoutes')
+const bookingRoutes = require('./routes/bookingRoutes')
+const paymentRoutes = require('./routes/paymentRoutes')
 const app = express()
 
 const PORT = process.env.PORT || 5000
@@ -15,7 +22,13 @@ app.use(cors({
 }))
 
 app.use(express.json())
-
+app.use('/api/auth', authRoutes)
+app.use('/api/vehicles', vehicleRoutes)
+app.use('/api/facilities', facilityRoutes)
+app.use('/api/slots', slotRoutes)
+app.use('/api/bookings', bookingRoutes)
+app.use('/api/payments', paymentRoutes)
+app.use('/api/admin', adminRoutes)
 // Welcome route
 app.get('/', (req, res) => {
   res.status(200).json({
@@ -32,6 +45,19 @@ app.get('/api/health', (req, res) => {
     message: 'ParkEase backend is running successfully',
     server: 'Express.js',
     database: 'Connected',
+  })
+})
+
+// Protected authentication verification route
+app.get('/api/auth/verify', verifyToken, (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: 'Authentication verified successfully.',
+    user: {
+      uid: req.user.uid,
+      email: req.user.email,
+      emailVerified: req.user.email_verified,
+    },
   })
 })
 
