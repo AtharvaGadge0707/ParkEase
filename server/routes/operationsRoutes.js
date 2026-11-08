@@ -9,6 +9,7 @@ const {
   checkInVehicle,
   checkOutVehicle,
   getActiveSessions,
+  getStaffDashboard,
 } = require('../controllers/operationsController')
 
 router.use(
@@ -17,6 +18,7 @@ router.use(
 )
 
 router.get('/sessions', getActiveSessions)
+router.get('/dashboard', getStaffDashboard)
 router.get('/booking/:bookingReference', findBooking)
 router.post('/entry', checkInVehicle)
 router.post('/:bookingId/exit', checkOutVehicle)

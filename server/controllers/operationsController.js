@@ -1,7 +1,7 @@
 const mongoose = require('mongoose')
 const Booking = require('../models/Booking')
 const Slot = require('../models/Slot')
-
+const Facility = require('../models/Facility')
 const checkFacilityAccess = (booking, user) => {
   if (
     user.role === 'Parking Staff' &&
@@ -257,10 +257,202 @@ const getActiveSessions = async (req, res) => {
     })
   }
 }
+// Get facility operations statistics for staff and administrators.
+const getStaffDashboard = async (req, res) => {
+  try {
+    // Validate staff facility assignment.
+    const accessFilter = getFacilityFilter(req.dbUser)
 
+    const facilityQuery =
+      req.dbUser.role === 'Parking Staff'
+        ? { _id: accessFilter.facility }
+        : {}
+
+    const facilities = await Facility.find(facilityQuery)
+      .select('name city state status totalCapacity')
+      .sort({ name: 1 })
+      .lean()
+
+    const facilityIds = facilities.map((facility) => facility._id)
+
+    // Calculate today's date using the Indian timezone.
+    const dateParts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Kolkata',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).formatToParts(new Date())
+
+    const dateValues = Object.fromEntries(
+      dateParts.map((part) => [part.type, part.value]),
+    )
+
+    const today = `${dateValues.year}-${dateValues.month}-${dateValues.day}`
+    const startOfDay = new Date(`${today}T00:00:00+05:30`)
+    const endOfDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000)
+
+    const [slotStats, bookingStats] = await Promise.all([
+      Slot.aggregate([
+        {
+          $match: {
+            facility: { $in: facilityIds },
+          },
+        },
+        {
+          $group: {
+            _id: '$facility',
+            total: { $sum: 1 },
+            available: {
+              $sum: { $cond: [{ $eq: ['$status', 'Available'] }, 1, 0] },
+            },
+            reserved: {
+              $sum: { $cond: [{ $eq: ['$status', 'Reserved'] }, 1, 0] },
+            },
+            occupied: {
+              $sum: { $cond: [{ $eq: ['$status', 'Occupied'] }, 1, 0] },
+            },
+            unavailable: {
+              $sum: { $cond: [{ $eq: ['$status', 'Unavailable'] }, 1, 0] },
+            },
+          },
+        },
+      ]),
+      Booking.aggregate([
+        {
+          $match: {
+            facility: { $in: facilityIds },
+          },
+        },
+        {
+          $group: {
+            _id: '$facility',
+            activeVehicles: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      { $eq: ['$status', 'Confirmed'] },
+                      { $ne: ['$entryTime', null] },
+                      { $eq: ['$exitTime', null] },
+                    ],
+                  },
+                  1,
+                  0,
+                ],
+              },
+            },
+            todayEntries: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      { $gte: ['$entryTime', startOfDay] },
+                      { $lt: ['$entryTime', endOfDay] },
+                    ],
+                  },
+                  1,
+                  0,
+                ],
+              },
+            },
+            todayExits: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      { $gte: ['$exitTime', startOfDay] },
+                      { $lt: ['$exitTime', endOfDay] },
+                    ],
+                  },
+                  1,
+                  0,
+                ],
+              },
+            },
+          },
+        },
+      ]),
+    ])
+
+    const slotMap = new Map(
+      slotStats.map((item) => [item._id.toString(), item]),
+    )
+
+    const bookingMap = new Map(
+      bookingStats.map((item) => [item._id.toString(), item]),
+    )
+
+    const facilityDetails = facilities.map((facility) => {
+      const id = facility._id.toString()
+      const slots = slotMap.get(id) || {}
+      const bookings = bookingMap.get(id) || {}
+
+      return {
+        _id: facility._id,
+        name: facility.name,
+        city: facility.city,
+        state: facility.state,
+        status: facility.status,
+        totalCapacity: facility.totalCapacity,
+        slots: {
+          total: slots.total || 0,
+          available: slots.available || 0,
+          reserved: slots.reserved || 0,
+          occupied: slots.occupied || 0,
+          unavailable: slots.unavailable || 0,
+        },
+        activeVehicles: bookings.activeVehicles || 0,
+        todayEntries: bookings.todayEntries || 0,
+        todayExits: bookings.todayExits || 0,
+      }
+    })
+
+    const summary = facilityDetails.reduce(
+      (totals, facility) => {
+        totals.totalFacilities += 1
+        totals.totalCapacity += facility.totalCapacity
+        totals.totalSlots += facility.slots.total
+        totals.availableSlots += facility.slots.available
+        totals.reservedSlots += facility.slots.reserved
+        totals.occupiedSlots += facility.slots.occupied
+        totals.unavailableSlots += facility.slots.unavailable
+        totals.activeVehicles += facility.activeVehicles
+        totals.todayEntries += facility.todayEntries
+        totals.todayExits += facility.todayExits
+
+        return totals
+      },
+      {
+        totalFacilities: 0,
+        totalCapacity: 0,
+        totalSlots: 0,
+        availableSlots: 0,
+        reservedSlots: 0,
+        occupiedSlots: 0,
+        unavailableSlots: 0,
+        activeVehicles: 0,
+        todayEntries: 0,
+        todayExits: 0,
+      },
+    )
+
+    return res.status(200).json({
+      success: true,
+      date: today,
+      summary,
+      facilities: facilityDetails,
+    })
+  } catch (error) {
+    return res.status(error.status || 500).json({
+      success: false,
+      message: error.message || 'Unable to fetch dashboard statistics.',
+    })
+  }
+}
 module.exports = {
   findBooking,
   checkInVehicle,
   checkOutVehicle,
   getActiveSessions,
+  getStaffDashboard,
 }
