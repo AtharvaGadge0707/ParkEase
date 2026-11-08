@@ -11,6 +11,8 @@ import Slots from './pages/Slots'
 import ParkingSearch from './pages/Search'
 import Bookings from './pages/Bookings'
 import Payments from './pages/Payments'
+import EntryExit from './pages/EntryExit'
+import ActiveSessions from './pages/ActiveSessions'
 import {
   Activity,
   BarChart3,
@@ -558,6 +560,10 @@ function AppLayout() {
                         <Bookings />
                       ) : item.path === '/payments' ? (
                         <Payments />
+                      ) : item.path === '/entry-exit' ? (
+                        <EntryExit />
+                      ) : item.path === '/sessions' ? (
+                        <ActiveSessions />
                       ) : (
                         <PlaceholderPage title={item.label} />
                       )}

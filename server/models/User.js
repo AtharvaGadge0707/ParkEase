@@ -34,7 +34,7 @@ const userSchema = new mongoose.Schema(
     },
     assignedFacility: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'ParkingFacility',
+      ref: 'Facility',
       default: null,
     },
   },

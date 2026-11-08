@@ -97,6 +97,24 @@ const bookingSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+        entryTime: {
+      type: Date,
+      default: null,
+    },
+    exitTime: {
+      type: Date,
+      default: null,
+    },
+    checkedInBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
+    checkedOutBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
   },
   { timestamps: true },
 )
