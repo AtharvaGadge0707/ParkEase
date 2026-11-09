@@ -14,6 +14,8 @@ import Payments from './pages/Payments'
 import EntryExit from './pages/EntryExit'
 import ActiveSessions from './pages/ActiveSessions'
 import StaffDashboard from './pages/StaffDashboard'
+import UserManagement from './pages/UserManagement'
+import Administration from './pages/Administration'
 import {
   Activity,
   BarChart3,
@@ -567,6 +569,10 @@ function AppLayout() {
                         <ActiveSessions />
                       ) :  item.path === '/staff' ? (
                         <StaffDashboard />
+                      ) :  item.path === '/users' ? (
+                        <UserManagement />
+                      ) : item.path === '/admin' ? (
+                        <Administration />
                       ) : (
                         <PlaceholderPage title={item.label} />
                       )}
