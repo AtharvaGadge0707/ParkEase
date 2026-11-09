@@ -16,6 +16,7 @@ import ActiveSessions from './pages/ActiveSessions'
 import StaffDashboard from './pages/StaffDashboard'
 import UserManagement from './pages/UserManagement'
 import Administration from './pages/Administration'
+import Reports from './pages/Reports'
 import {
   Activity,
   BarChart3,
@@ -573,6 +574,8 @@ function AppLayout() {
                         <UserManagement />
                       ) : item.path === '/admin' ? (
                         <Administration />
+                      ) : item.path === '/reports' ? (
+                        <Reports />
                       ) : (
                         <PlaceholderPage title={item.label} />
                       )}

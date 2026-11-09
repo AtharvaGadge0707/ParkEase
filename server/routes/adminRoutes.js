@@ -3,7 +3,7 @@ const router = express.Router()
 
 const verifyToken = require('../middleware/authMiddleware')
 const authorizeRoles = require('../middleware/authorizeRoles')
-
+const { getReports } = require('../controllers/reportController')
 const {
   getUsers,
   updateUser,
@@ -22,6 +22,8 @@ router.get('/access-check', (req, res) => {
 
 router.get('/overview', getAdminOverview)
 router.get('/users', getUsers)
+router.get('/reports', getReports)
 router.patch('/users/:id', updateUser)
+
 
 module.exports = router
