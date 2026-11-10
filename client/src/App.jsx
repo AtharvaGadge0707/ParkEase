@@ -24,7 +24,6 @@ import {
   CalendarCheck,
   CarFront,
   ClipboardList,
-  Clock3,
   CreditCard,
   LayoutDashboard,
   MapPin,
@@ -102,12 +101,6 @@ const navigationGroups = [
         label: 'Payments',
         path: '/payments',
         icon: CreditCard,
-        roles: CUSTOMER,
-      },
-      {
-        label: 'Parking History',
-        path: '/history',
-        icon: Clock3,
         roles: CUSTOMER,
       },
     ],
@@ -587,6 +580,11 @@ function AppLayout() {
             <Route
               path="/unauthorized"
               element={<UnauthorizedPage />}
+            />
+
+            <Route
+              path="/history"
+              element={<Navigate to="/bookings" replace />}
             />
 
             <Route

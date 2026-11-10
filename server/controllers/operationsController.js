@@ -449,10 +449,48 @@ const getStaffDashboard = async (req, res) => {
     })
   }
 }
+// Get upcoming bookings for the Entry / Exit dashboard.
+const getEntryQueue = async (req, res) => {
+  try {
+    const facilityFilter = getFacilityFilter(req.dbUser)
+
+    const bookings = await Booking.find({
+      ...facilityFilter,
+      status: { $in: ['Pending Payment', 'Confirmed'] },
+      entryTime: null,
+      exitTime: null,
+      endTime: { $gt: new Date() },
+    })
+      .populate('user', 'name email phone')
+      .populate('facility', 'name address city')
+      .populate('slot', 'slotNumber vehicleType floor section')
+      .populate(
+        'vehicle',
+        'registrationNumber type make model color',
+      )
+      .sort({ createdAt: -1 })
+      .limit(100)
+      .lean()
+
+    return res.status(200).json({
+      success: true,
+      count: bookings.length,
+      bookings,
+    })
+  } catch (error) {
+    console.error('Fetching entry queue failed:', error.message)
+
+    return res.status(error.status || 500).json({
+      success: false,
+      message: error.message || 'Unable to fetch upcoming bookings.',
+    })
+  }
+}
 module.exports = {
   findBooking,
   checkInVehicle,
   checkOutVehicle,
   getActiveSessions,
   getStaffDashboard,
+  getEntryQueue,
 }

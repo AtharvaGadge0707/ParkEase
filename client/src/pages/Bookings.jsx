@@ -3,18 +3,21 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import {
   CalendarCheck,
-  Clock3,
   MapPin,
+  Clock3,
   ParkingSquare,
   CarFront,
   IndianRupee,
   XCircle,
+  LogIn,
+  LogOut,
 } from 'lucide-react'
 import { useAuth } from '../context/useAuth'
 import { apiRequest } from '../services/api'
 
 const toLocalDateTime = (date) => {
   const offset = date.getTimezoneOffset() * 60000
+
   return new Date(date.getTime() - offset)
     .toISOString()
     .slice(0, 16)
@@ -29,7 +32,7 @@ const initialEnd = toLocalDateTime(
 )
 
 const formatDate = (value) =>
-  value ? new Date(value).toLocaleString() : 'N/A'
+  value ? new Date(value).toLocaleString() : 'Not recorded'
 
 export default function Bookings() {
   const { currentUser } = useAuth()
@@ -140,9 +143,11 @@ export default function Bookings() {
     }
   }, [currentUser, preselectedFacility])
 
+  // Refresh customer bookings after changes.
   const refreshBookings = useCallback(async () => {
     const token = await currentUser.getIdToken()
     const data = await apiRequest('/api/bookings/my', { token })
+
     setBookings(data.bookings || [])
   }, [currentUser])
 
@@ -161,6 +166,7 @@ export default function Bookings() {
     clearAvailability()
   }
 
+  // Check parking slot availability.
   const handleCheckAvailability = async (event) => {
     event.preventDefault()
 
@@ -220,6 +226,7 @@ export default function Bookings() {
     }
   }
 
+  // Create a parking reservation.
   const handleCreateBooking = async () => {
     if (!selectedSlot) {
       setError('Please select an available parking slot.')
@@ -310,7 +317,7 @@ export default function Bookings() {
         </h2>
 
         <p className="mt-2 text-sm text-blue-100">
-          Reserve parking spaces and manage your reservations.
+          Reserve parking spaces, manage your bookings and view your parking history.
         </p>
       </section>
 
@@ -604,12 +611,17 @@ export default function Bookings() {
         </section>
       )}
 
-      {/* BOOKING HISTORY */}
+      {/* MY BOOKINGS & PARKING HISTORY */}
       <section>
-        <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-lg font-bold text-slate-800">
-            My Booking History
-          </h3>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h3 className="text-lg font-bold text-slate-800">
+              My Bookings & Parking History
+            </h3>
+            <p className="mt-1 text-sm text-slate-500">
+              View your reservations and actual parking sessions.
+            </p>
+          </div>
 
           <span className="text-sm text-slate-500">
             {bookings.length} booking(s)
@@ -628,7 +640,7 @@ export default function Bookings() {
             </h4>
 
             <p className="mt-2 text-sm text-slate-500">
-              Your reservations will appear here after booking.
+              Your reservations and parking history will appear here.
             </p>
           </div>
         ) : (
@@ -650,13 +662,16 @@ export default function Bookings() {
                 booking.paymentStatus !== 'Paid' &&
                 new Date(booking.startTime) > new Date()
 
+              const hasParkingSession =
+                Boolean(booking.entryTime || booking.exitTime)
+
               return (
                 <article
                   key={booking._id}
                   className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
                 >
                   <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
-                    <div>
+                    <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <h4 className="font-bold text-slate-800">
                           {booking.facility?.name || 'Parking Facility'}
@@ -714,15 +729,71 @@ export default function Bookings() {
                           </p>
                         )}
                       </div>
+
+                      {/* ACTUAL PARKING SESSION HISTORY */}
+                      {hasParkingSession && (
+                        <div className="mt-5 rounded-lg border border-blue-100 bg-blue-50 p-4">
+                          <h5 className="font-semibold text-blue-900">
+                            Actual Parking Session
+                          </h5>
+
+                          <div className="mt-3 space-y-3">
+                            <p className="flex items-center gap-2 text-sm text-slate-700">
+                              <LogIn
+                                size={17}
+                                className="shrink-0 text-green-600"
+                              />
+                              <span>
+                                <span className="font-medium">Entry:</span>{' '}
+                                {formatDate(booking.entryTime)}
+                              </span>
+                            </p>
+
+                            <p className="flex items-center gap-2 text-sm text-slate-700">
+                              <LogOut
+                                size={17}
+                                className="shrink-0 text-red-600"
+                              />
+                              <span>
+                                <span className="font-medium">Exit:</span>{' '}
+                                {formatDate(booking.exitTime)}
+                              </span>
+                            </p>
+                          </div>
+
+                          <span
+                            className={`mt-4 inline-block rounded-full px-3 py-1 text-xs font-semibold ${
+                              booking.exitTime
+                                ? 'bg-green-100 text-green-700'
+                                : 'bg-blue-100 text-blue-700'
+                            }`}
+                          >
+                            {booking.exitTime
+                              ? 'Parking Session Completed'
+                              : 'Vehicle Currently Parked'}
+                          </span>
+                        </div>
+                      )}
+
+                      {booking.status === 'Completed' && !hasParkingSession && (
+                        <div className="mt-4 rounded-lg bg-slate-50 p-3 text-xs text-slate-500">
+                          This booking is completed. Actual entry and exit
+                          timestamps are not available.
+                        </div>
+                      )}
                     </div>
 
-                    <div className="sm:text-right">
+                    <div className="sm:min-w-44 sm:text-right">
                       <p className="text-xs text-slate-500">
                         Booking Amount
                       </p>
 
                       <p className="mt-1 text-2xl font-bold text-slate-800">
-                        ₹{booking.totalAmount?.toFixed(2)}
+                        <IndianRupee
+                          size={19}
+                          className="mr-0.5 inline"
+                        />
+                        {booking.totalAmount?.toFixed(2)}
                       </p>
 
                       <p className="mt-1 text-xs text-slate-500">
