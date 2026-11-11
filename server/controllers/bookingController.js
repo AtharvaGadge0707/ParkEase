@@ -135,7 +135,7 @@ const getAvailableSlots = async (req, res) => {
     const slots = await Slot.find({
       facility: facility._id,
       vehicleType,
-      status: 'Available',
+      status: { $in: ['Available', 'Occupied'] },
     }).sort({ slotNumber: 1 })
 
     const slotIds = slots.map((slot) => slot._id)
@@ -286,7 +286,7 @@ const createBooking = async (req, res) => {
         _id: slotId,
         facility: facility._id,
         vehicleType: vehicle.type,
-        status: 'Available',
+        status: { $in: ['Available', 'Occupied'] },
       }).session(session)
 
       if (!slot) {
@@ -315,7 +315,7 @@ const createBooking = async (req, res) => {
       const lockResult = await Slot.updateOne(
         {
           _id: slot._id,
-          status: 'Available',
+          status: { $in: ['Available', 'Occupied'] },
         },
         {
           $inc: { reservationVersion: 1 },
