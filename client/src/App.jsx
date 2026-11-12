@@ -17,10 +17,10 @@ import StaffDashboard from './pages/StaffDashboard'
 import UserManagement from './pages/UserManagement'
 import Administration from './pages/Administration'
 import Reports from './pages/Reports'
+import NotificationCenter from './components/NotificationCenter'
 import {
   Activity,
   BarChart3,
-  Bell,
   CalendarCheck,
   CarFront,
   ClipboardList,
@@ -229,6 +229,7 @@ function Sidebar({ onNavigate, groups }) {
 }
 
 // HEADER
+
 function Header({ onMenuClick, title }) {
   const { currentUser, userProfile, logout } = useAuth()
 
@@ -271,14 +272,10 @@ function Header({ onMenuClick, title }) {
       </div>
 
       <div className="flex items-center gap-3 sm:gap-5">
-        <button
-          type="button"
-          aria-label="Notifications"
-          className="relative rounded-full p-2 text-slate-500 hover:bg-slate-100"
-        >
-          <Bell size={20} />
-          <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-blue-500" />
-        </button>
+        {/* Customer Notification Center */}
+        {userProfile?.role === 'Customer' && (
+          <NotificationCenter />
+        )}
 
         <div className="hidden h-8 w-px bg-slate-200 sm:block" />
 

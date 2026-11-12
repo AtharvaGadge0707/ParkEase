@@ -1,7 +1,66 @@
+
 const mongoose = require('mongoose')
 const Booking = require('../models/Booking')
 const Slot = require('../models/Slot')
 const Facility = require('../models/Facility')
+const {
+  createAndSendNotification,
+} = require('../services/notificationService')
+
+const {
+  scheduleBookingReminder,
+  cancelBookingReminder,
+} = require('../services/reminderScheduler')
+
+// Send customer notifications after a booking operation has committed.
+const sendBookingNotification = async (io, bookingId, type) => {
+  if (!io) return
+
+  try {
+    const booking = await Booking.findById(bookingId)
+      .populate('facility', 'name')
+      .populate('vehicle', 'registrationNumber')
+      .lean()
+
+    if (!booking) return
+
+    const facilityName = booking.facility?.name || 'your parking facility'
+    const vehicleNumber =
+      booking.vehicle?.registrationNumber || 'your vehicle'
+
+    const notificationDetails = {
+      VEHICLE_CHECKED_IN: {
+        title: 'Vehicle Checked In',
+        message: `Your vehicle ${vehicleNumber} has been checked in at ${facilityName}.`,
+      },
+      VEHICLE_CHECKED_OUT: {
+        title: 'Vehicle Checked Out',
+        message: `Your vehicle ${vehicleNumber} has been checked out from ${facilityName}.`,
+      },
+    }
+
+    const details = notificationDetails[type]
+    if (!details) return
+
+    await createAndSendNotification(io, {
+      userId: booking.user,
+      type,
+      title: details.title,
+      message: details.message,
+      bookingId: booking._id,
+      metadata: {
+        bookingReference: booking.bookingReference,
+        facilityName,
+        vehicleNumber,
+      },
+    })
+  } catch (error) {
+    // The booking transaction has already committed. A notification failure
+    // must not turn a successful check-in/check-out into a failed API response.
+    console.error(`Sending ${type} notification failed:`, error.message)
+  }
+}
+
 const checkFacilityAccess = (booking, user) => {
   if (
     user.role === 'Parking Staff' &&
@@ -137,6 +196,32 @@ const checkInVehicle = async (req, res) => {
       updatedBooking = booking
     })
 
+    const io = req.app.get('io')
+
+    // Notify the customer after the check-in transaction succeeds.
+    await sendBookingNotification(
+      io,
+      updatedBooking._id,
+      'VEHICLE_CHECKED_IN',
+    )
+
+    // Start the 10-minute-before-endTime reminder for this active session.
+    if (io) {
+      try {
+        const reminderBooking = await Booking.findById(updatedBooking._id)
+          .select(
+            '_id user bookingReference facility vehicle startTime endTime entryTime exitTime status reminderSentAt',
+          )
+          .lean()
+
+        if (reminderBooking) {
+          scheduleBookingReminder(reminderBooking, io)
+        }
+      } catch (error) {
+        console.error('Scheduling parking-end reminder failed:', error.message)
+      }
+    }
+
     return res.status(200).json({
       success: true,
       message: 'Vehicle entry recorded successfully.',
@@ -211,6 +296,16 @@ const checkOutVehicle = async (req, res) => {
       updatedBooking = booking
     })
 
+    // Cancel any pending reminder because the vehicle has checked out.
+    cancelBookingReminder(updatedBooking._id)
+
+    // Notify the customer after the check-out transaction succeeds.
+    await sendBookingNotification(
+      req.app.get('io'),
+      updatedBooking._id,
+      'VEHICLE_CHECKED_OUT',
+    )
+
     return res.status(200).json({
       success: true,
       message: 'Vehicle exit recorded and parking slot released.',
@@ -257,6 +352,7 @@ const getActiveSessions = async (req, res) => {
     })
   }
 }
+
 // Get facility operations statistics for staff and administrators.
 const getStaffDashboard = async (req, res) => {
   try {
@@ -449,6 +545,7 @@ const getStaffDashboard = async (req, res) => {
     })
   }
 }
+
 // Get upcoming bookings for the Entry / Exit dashboard.
 const getEntryQueue = async (req, res) => {
   try {
@@ -486,6 +583,7 @@ const getEntryQueue = async (req, res) => {
     })
   }
 }
+
 module.exports = {
   findBooking,
   checkInVehicle,

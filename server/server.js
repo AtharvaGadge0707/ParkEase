@@ -4,6 +4,7 @@ require('dotenv').config()
 const express = require('express')
 const cors = require('cors')
 const connectDB = require('./config/db')
+const { createServer } = require('http')
 const verifyToken = require('./middleware/authMiddleware')
 const adminRoutes = require('./routes/adminRoutes')
 const authRoutes = require('./routes/authRoutes')
@@ -13,8 +14,19 @@ const slotRoutes = require('./routes/slotRoutes')
 const bookingRoutes = require('./routes/bookingRoutes')
 const paymentRoutes = require('./routes/paymentRoutes')
 const operationsRoutes = require('./routes/operationsRoutes')
+const notificationRoutes = require('./routes/notificationRoutes')
+const { initializeSocket } = require('./config/socket')
+const { startReminderScheduler } = require('./services/reminderScheduler')
 const app = express()
 
+// Create one HTTP server for Express and Socket.IO.
+const httpServer = createServer(app)
+
+// Initialize authenticated WebSocket connections.
+const io = initializeSocket(httpServer)
+
+// Make Socket.IO accessible to API controllers.
+app.set('io', io)
 const PORT = process.env.PORT || 5000
 
 // Middleware
@@ -30,6 +42,7 @@ app.use('/api/slots', slotRoutes)
 app.use('/api/bookings', bookingRoutes)
 app.use('/api/payments', paymentRoutes)
 app.use('/api/operations', operationsRoutes)
+app.use('/api/notifications', notificationRoutes)
 app.use('/api/admin', adminRoutes)
 // Welcome route
 app.get('/', (req, res) => {
@@ -72,12 +85,17 @@ app.use((req, res) => {
 })
 
 // Connect database before starting server
+// Connect database before starting the HTTP and WebSocket server.
 const startServer = async () => {
   await connectDB()
 
-  app.listen(PORT, () => {
+  startReminderScheduler(io)
+
+  httpServer.listen(PORT, () => {
     console.log(`ParkEase API running at http://localhost:${PORT}`)
+    console.log('Socket.IO server initialized successfully.')
   })
 }
+
 
 startServer()

@@ -105,6 +105,10 @@ const bookingSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    reminderSentAt: {
+      type: Date,
+      default: null,
+    },
     checkedInBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
